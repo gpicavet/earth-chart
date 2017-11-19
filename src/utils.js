@@ -19,7 +19,7 @@ function bbox(vertcoords, dim=2) {
 	return res;
 }
 
-function cutPolyLine(poly, linePoint, lineDir) {
+function cutPolyLine2D(poly, rayOrig, rayDir) {
 	if(!poly || poly.length<3)
 		throw "poly must have at least 3 vertices";
 
@@ -31,26 +31,32 @@ function cutPolyLine(poly, linePoint, lineDir) {
 	for(var ivert=0; ivert<poly.length; ivert++) {
 		var end=poly[ivert];
 
+		//inter = start + s * (end-start)
+		//s = (rayOrig-start) dot (-rayDir.y, rayDir.x) / (end-start) dot (-rayDir.y, rayDir.x)
+		//inter in edge if s>=0 && s<=1
 		var edgeDir = [end[0]-start[0], end[1]-start[1]];
-		var det = lineDir[0] * edgeDir[1] - lineDir[1] * edgeDir[0];
-		if(det!=0) {
-
-			var s = (lineDir[1] * (linePoint[0] - start[0]) - lineDir[0] * (linePoint[1] - start[1])) / det;
+		var den = rayDir[0] * edgeDir[1] - rayDir[1] * edgeDir[0];
+		if(den!=0) {
+			var num = rayDir[0] * (rayOrig[1] - start[1]) - rayDir[1] * (rayOrig[0] - start[0]);
+			var s = num / den;
 
 			if(s>=0 && s<=1) {
 				var p = [
 					start[0] + s * edgeDir[0],
 					start[1] + s * edgeDir[1]
 				];
-				var t = (edgeDir[1] * (linePoint[0] - start[0]) - edgeDir[0] * (linePoint[1] - start[1])) / det;
+				//inter = rayOrig + t * rayDir
+				//t = det((end-start),(rayOrig-start)) / (end-start) dot (-rayDir.y, rayDir.x)
+				num = edgeDir[0] * (rayOrig[1] - start[1]) - edgeDir[1] * (rayOrig[0] - start[0]);
+				var t = num / den;
 				interPoints.push({p:p,t:t});
-				console.log(t);
 			}
 
 		}
 		start = end;
 	}
 
+	//sort inter points by distance to the ray origin
 	interPoints.sort(function(a,b) {
 		if(a.t<b.t)
 			return -1;
@@ -58,6 +64,7 @@ function cutPolyLine(poly, linePoint, lineDir) {
 			return 1;
 		return 0;
 	});
+	console.log(interPoints);
 
 	var start=poly[poly.length-1];
 	for(var ivert=0; ivert<poly.length; ivert++) {
@@ -70,5 +77,5 @@ function cutPolyLine(poly, linePoint, lineDir) {
 
 module.exports = {
 	bbox,
-	cutPolyLine
+	cutPolyLine2D
 }
