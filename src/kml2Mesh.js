@@ -25,7 +25,7 @@ function kml2mesh(doc, outputFileName) {
     for(let f of d.Folder) {
       for(let pm of f.Placemark) {
 
-        let country = {polygons:[]};
+        let country = {name:pm.name, polygons:[]};
         output.countries.push(country);
 
       //if(pm.name.indexOf("pole")>=0) {
@@ -82,7 +82,7 @@ function kml2Poly(doc, out) {
           if(geocoords.length>0) {
 
             let splitpolys = [geocoords];
-            let splitlen=20;
+            let splitlen=5;
             //cut with vertical line
             for(let xsplit=-360; xsplit<360; xsplit+=splitlen) {
               let newsplitpolys=[];
@@ -130,6 +130,9 @@ function kml2Poly(doc, out) {
               //console.log("after split "+splitpolys.length);
             }
 
+            let faceOffset=0;
+            let mesh={vertices:[], faces:[]};
+            out.polygons.push(mesh);
             for(let splitpoly of splitpolys) {
               if(splitpoly.length>0) {
 
@@ -141,24 +144,25 @@ function kml2Poly(doc, out) {
                 var trianglesIndices = earcut(polyflat);
 
                 //convert spherical geo coordinates to X,Y,Z space
-                let poly={vertices:[], faces:[]};
 
                 for(let v of splitpoly) {
                   let lon=v[0];
                   let lat=v[1];
-                  let x = 50*Math.cos(lat*Math.PI/180)*Math.cos(lon*Math.PI/180);
-                  let y = 50*Math.cos(lat*Math.PI/180)*Math.sin(lon*Math.PI/180);
-                  let z = 50*Math.sin(lat*Math.PI/180);
+                  //opengl coordinate systeme
+                  let x = Math.cos(lat*Math.PI/180)*Math.sin(lon*Math.PI/180);
+                  let y = Math.sin(lat*Math.PI/180);
+                  let z = Math.cos(lat*Math.PI/180)*Math.cos(lon*Math.PI/180);
 
-                  poly.vertices.push([x,y,z]);
+                  mesh.vertices.push([x,y,z]);
 
                 }
 
                 for(var itri=0; itri<trianglesIndices.length; itri+=3) {
-                  poly.faces.push( [trianglesIndices[itri], trianglesIndices[itri+1], trianglesIndices[itri+2]] );
+                  mesh.faces.push( [faceOffset+trianglesIndices[itri], faceOffset+trianglesIndices[itri+1], faceOffset+trianglesIndices[itri+2]] );
                 }
 
-                out.polygons.push(poly);
+
+                faceOffset+=splitpoly.length;
               }
             }
           }
