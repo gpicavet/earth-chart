@@ -1,19 +1,17 @@
 'use strict';
 
-function bbox(vertcoords, dim=2) {
+function bbox(vertcoords) {
 	var res ={
-		min: [],
-		max: []
+		min: [1E99,1E99],
+		max: [-1E99,-1E99]
 	};
-	res.min.length=dim;
-	res.max.length=dim;
-	for(var ivert=0; ivert<vertcoords.length; ivert+=dim) {
-		for(var idim=0; idim<dim; idim++) {
-			var axisc=vertcoords[ivert+idim];
-			if(axisc<min[idim])
-				min[idim]=axisc;
-			if(axisc>max[idim])
-				max[idim]=axisc;
+	for(let v of vertcoords) {
+		for(var idim=0; idim<v.length; idim++) {
+			var c = v[idim];
+			if(c < res.min[idim])
+				res.min[idim] = c;
+			if(c > res.max[idim])
+				res.max[idim] = c;
 		}
 	}
 	return res;
@@ -23,9 +21,7 @@ function cutPolyLine2D(poly, rayOrig, rayDir) {
 	if(!poly || poly.length<3)
 		throw "poly must have at least 3 vertices";
 
-	var res = [];
 	var interPoints = [];
-	var crossbacks = [];
 
 	var start=poly[poly.length-1];
 	for(var ivert=0; ivert<poly.length; ivert++) {
@@ -49,14 +45,18 @@ function cutPolyLine2D(poly, rayOrig, rayDir) {
 				//t = det((end-start),(rayOrig-start)) / (end-start) dot (-rayDir.y, rayDir.x)
 				num = edgeDir[0] * (rayOrig[1] - start[1]) - edgeDir[1] * (rayOrig[0] - start[0]);
 				var t = num / den;
-				interPoints.push({p:p,t:t});
+				interPoints.push({
+					is:(ivert+poly.length-1)%poly.length,
+					ie:ivert,
+					p:p,
+					t:t});
 			}
 
 		}
 		start = end;
 	}
 
-	//sort inter points by distance to the ray origin
+	//sort inter points by distance from the ray origin
 	interPoints.sort(function(a,b) {
 		if(a.t<b.t)
 			return -1;
@@ -64,15 +64,57 @@ function cutPolyLine2D(poly, rayOrig, rayDir) {
 			return 1;
 		return 0;
 	});
-	console.log(interPoints);
+//	console.log(interPoints);
 
-	var start=poly[poly.length-1];
-	for(var ivert=0; ivert<poly.length; ivert++) {
-		var end=poly[ivert];
-		start = end;
+	if(interPoints.length%2 !==0)
+		throw "unknown error";
+
+	//list of new polygons with a first empty one (make it current)
+	var output = [[]];
+	var curPoly=output[0];
+
+	//walk through initial poly points
+	for(let ivert=0; ivert<poly.length; ivert++) {
+//		console.log(ivert);
+		//append first point to poly
+		curPoly.push(poly[ivert]);
+
+		//is there an intersection point ?
+		var inter=null;
+		for(var interTmp=0; interTmp<interPoints.length; interTmp++) {
+			if(interPoints[interTmp].is == ivert) {
+				inter = interTmp;
+				break;
+			}
+		}
+
+		if(inter !== null) {
+			//yes, add the inter point to the current poly
+			curPoly.push(interPoints[inter].p);
+			//set the paired inter point to be the crossback point of this poly
+			if(inter%2==0) {
+//				console.log("+1");
+				interPoints[inter+1].crossback=curPoly;
+			} else {
+//				console.log("-1");
+				interPoints[inter-1].crossback=curPoly;
+			}
+			//now we have to switch the current poly to a pending one or to a new one
+			if(interPoints[inter].crossback) {
+				curPoly = interPoints[inter].crossback;
+//				console.log("a");
+			} else {
+//				console.log("b");
+				curPoly = [];
+				output.push(curPoly);
+			}
+			//add the inter point the new current
+			curPoly.push(interPoints[inter].p);
+		}
+
 	}
 
-	return res;
+	return output;
 }
 
 module.exports = {

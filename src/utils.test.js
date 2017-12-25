@@ -6,13 +6,17 @@ var poly=[[1,1],[2,5],[3,3],[4,5],[5,2],[4,6],[2,6]];
 
 test('1', function (t) {
 	//vertical line cutting 2 edges
-	cutPolyLine2D(poly, [3.5,0], [0,1]);
+	let out = cutPolyLine2D(poly, [3.5,0], [0,1]);
+	console.log(out);
+	t.ok(out.length == 2);
 	t.end();
 });
 
 test('2', function (t) {
 	//horizontal line cutting 6 edges
-	cutPolyLine2D(poly, [0,4], [1,0]);
+	let out = cutPolyLine2D(poly, [0,4], [1,0]);
+	console.log(out);
+	t.ok(out.length == 4);
 	t.end();
 });
 

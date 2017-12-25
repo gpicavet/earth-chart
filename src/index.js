@@ -1,86 +1,109 @@
-import earcut from 'earcut';
 import * as THREE from 'three';
 
 
-function start() {
-fetch("countries-world.kml")
-.then(function(res) {return res.text();})
-.then(function(restext) {
-  var oParser = new DOMParser();
-  var oDOM = oParser.parseFromString(restext, "text/xml");
+let distance=100;
+let theta=45, onMouseDownTheta=45, phi=60, onMouseDownPhi=60;
+let onMouseDownPosition = new THREE.Vector2();
 
-  if(oDOM.documentElement.nodeName == "parsererror") {
-    console.error("error while parsing");
-    return;
-  }
+let isMouseDown=false;
 
-  var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 1, 1000 );
+camera.position.x = distance * Math.sin( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
+camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+camera.lookAt(scene.position);
 
-  var renderer = new THREE.WebGLRenderer();
-  renderer.setSize( window.innerWidth, window.innerHeight );
-  document.body.appendChild( renderer.domElement );
-
-  var xmlplacemarks = oDOM.documentElement.querySelectorAll("Placemark");
-  for(var xmlplacemark of xmlplacemarks) {
-    console.info(xmlplacemark.querySelector("name").textContent);
-    var xmlPolyCoords = xmlplacemark.querySelectorAll("Polygon outerBoundaryIs LinearRing coordinates");
-    for(var xmlcoords of xmlPolyCoords) {
-      var xmlverts = xmlcoords.textContent.split(" ");
+var renderer = new THREE.WebGLRenderer();
+renderer.setSize( window.innerWidth, window.innerHeight );
+document.body.appendChild( renderer.domElement );
 
 
-      var vertcoords=[];
-      for(let xmlvert of xmlverts) {
-        let xmlvertcoords = xmlvert.split(",");
-        let lon=parseFloat(xmlvertcoords[0])
-        let lat=parseFloat(xmlvertcoords[1]);
-        vertcoords.push(lon,lat);
-      }
-
-      //var bbox = bbox(vertcoords);
-
-      var trianglesIndices = earcut(vertcoords);
-
-      var geometry = new THREE.Geometry();
-
-      for(var ivert=0; ivert<vertcoords.length; ivert+=2) {
-        let lon=vertcoords[ivert];
-        let lat=vertcoords[ivert+1];
-        let x = 50*Math.cos(lat*3.14/180)*Math.cos(lon*3.14/180);
-        let y = 50*Math.cos(lat*3.14/180)*Math.sin(lon*3.14/180);
-        let z = 50*Math.sin(lat*3.14/180);
-        geometry.vertices.push(
-          new THREE.Vector3( x,y,z )
-        );
-      }
-
-      for(var itri=0; itri<trianglesIndices.length; itri+=3) {
-        geometry.faces.push( new THREE.Face3( trianglesIndices[itri], trianglesIndices[itri+1], trianglesIndices[itri+2] ) );
-      }
-
-      var material = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16) } );
-      var mesh = new THREE.Mesh( geometry, material ) ;
-
-      scene.add( mesh );
-    }
-  }
+document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+document.addEventListener( 'mouseup', onDocumentMouseUp, false );
 
 
-  var frame=0;
+function onDocumentMouseMove(event) {
+  event.preventDefault();
+  if(isMouseDown) {
+    theta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 ) + onMouseDownTheta;
+    phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 ) + onMouseDownPhi;
 
-  var animate = function () {
-    frame++;
-    requestAnimationFrame( animate );
-
-    camera.position.z = 100*Math.cos(frame*3.14/180*0.1);
-    camera.position.x = 100*Math.sin(frame*3.14/180*0.1);
+    camera.position.x = distance * Math.sin( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+    camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
+    camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+    camera.updateMatrix();
     camera.lookAt(scene.position);
 
-    renderer.render(scene, camera);
-  };
-
-  animate();
-});
+  }
 }
 
-start();
+function onDocumentMouseDown(event) {
+  event.preventDefault();
+  isMouseDown=true;
+  onMouseDownTheta = theta;
+  onMouseDownPhi = phi;
+  onMouseDownPosition.x = event.clientX;
+  onMouseDownPosition.y = event.clientY;
+}
+
+function onDocumentMouseUp(event) {
+  event.preventDefault();
+  isMouseDown=false;
+  onMouseDownPosition.x = event.clientX - onMouseDownPosition.x;
+  onMouseDownPosition.y = event.clientY - onMouseDownPosition.y;
+}
+
+var animate = function () {
+  requestAnimationFrame( animate );
+
+  renderer.render(scene, camera);
+};
+
+
+function loadMesh(file) {
+  return fetch(file)
+  .then(function(res) {return res.json();})
+  .then(function(mesh) {
+
+
+    for(let country of mesh.countries) {
+
+      var material = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16) } );
+
+      for(let poly of country.polygons) {
+
+        var geometry = new THREE.Geometry();
+
+        for(let vert of poly.vertices) {
+          geometry.vertices.push(
+            new THREE.Vector3( vert[0], vert[1], vert[2] )
+          );
+        }
+
+        for(let face of poly.faces) {
+          geometry.faces.push( new THREE.Face3( face[0], face[1], face[2] ) );
+        }
+
+        var mesh = new THREE.Mesh( geometry, material ) ;
+
+        scene.add( mesh );
+      }
+    }
+  });
+}
+
+loadMesh("countries-world.json").then(function() {
+  var light = new THREE.DirectionalLight( 0xffffff );
+  light.position.set( 0, 1, 1 ).normalize();
+  scene.add(light);
+
+  var geometry = new THREE.SphereGeometry( 49.9, 32, 32 );
+  var material = new THREE.MeshPhongMaterial( { color: 0x0000ff, specular: 0x111111, shininess: 30 } );
+
+  var sphere = new THREE.Mesh( geometry, material );
+  scene.add( sphere );
+
+  animate();
+})
