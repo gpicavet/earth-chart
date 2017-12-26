@@ -81,7 +81,7 @@ function onMouseMove(event) {
       if(currentIntersectedObj != intersects[ 0 ].object &&
         currentIntersectedObjBar != intersects[ 0 ].object &&
         earthSphere != intersects[ 0 ].object) {
-/*
+
         //replace latest if exists
         if(currentIntersectedObjBar) {
           scene.remove(currentIntersectedObjBar);
@@ -89,38 +89,19 @@ function onMouseMove(event) {
 
         currentIntersectedObj = intersects[ 0 ].object;
 
-        let data = loadCountryData(currentIntersectedObj.name);
-        let extent = data / 1000000000;
-
-        console.log("SELECTED country ", currentIntersectedObj.name, data);
-
+        console.log("SELECTED country ", currentIntersectedObj.name);
+/*
         //extrude country
         let geometry = new THREE.Geometry();
 
-        for(let vert of currentIntersectedObj.geometry.vertices) {
+        for(let vert=currentIntersectedObj.geometry.vertices.length/2; vert<currentIntersectedObj.geometry.vertices.length; vert++) {
           geometry.vertices.push(
-            vert.clone()
-          );
-        }
-        for(let vert of currentIntersectedObj.geometry.vertices) {
-          geometry.vertices.push(
-            vert.clone().multiplyScalar(1+extent)
+            currentIntersectedObj.geometry.vertices[vert].clone()
           );
         }
 
-        let nv = currentIntersectedObj.geometry.vertices.length;
-
-        for(let face of currentIntersectedObj.geometry.faces) {
-          geometry.faces.push( new THREE.Face3(nv+face.a,nv+face.b,nv+face.c) );
-        }
-        for(let ivert =0; ivert<nv; ivert++) {
-          let ivert2 = (ivert+1)%nv;
-          geometry.faces.push( new THREE.Face3(ivert,ivert2,ivert2+nv) );
-          geometry.faces.push( new THREE.Face3(ivert,ivert2+nv,ivert+nv) );
-        }
-
-        let material = new THREE.MeshBasicMaterial( { color: currentIntersectedObj.material.color, opacity:0.5, transparent:true } );
-        currentIntersectedObjBar = new THREE.Mesh( geometry, material ) ;
+        let material = new THREE.LineBasicMaterial( { color: currentIntersectedObj.material.color, linewidth:2 } );
+        currentIntersectedObjBar = new THREE.LineLoop( geometry, material ) ;
 
         scene.add( currentIntersectedObjBar );*/
       }
