@@ -25,7 +25,15 @@ function kml2mesh(doc, outputFileName) {
     for(let f of d.Folder) {
       for(let pm of f.Placemark) {
 
-        let country = {name:pm.name, polygons:[]};
+        let iso2=null;
+        for(let sd of pm.ExtendedData[0].SchemaData[0].SimpleData) {
+            if(sd.$.name=='ISO2') {
+                iso2=sd._;
+                break;
+            }
+        }
+
+        let country = {iso2:iso2, polygons:[]};
         output.countries.push(country);
 
       //if(pm.name.indexOf("pole")>=0) {

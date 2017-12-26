@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "test": "tape src/*.test.js",
-    "start": "watchify src/index.js --s App -o public/js/app.js -dv & serve public",
+    "watch": "watchify src/index.js --s App -o public/js/app.js -dv",
+    "start": "serve public",
     "build": "browserify src/index.js --s App -t [ babelify --presets [env] ] | uglifyjs --screw-ie8 -c=dead_code,evaluate,loops,unused > public/js/app.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "earcut": "^2.1.2",
+    "country-json": "^1.0.2",
     "three": "^0.88.0"
   },
   "devDependencies": {
@@ -19,6 +20,7 @@
     "babel-preset-env": "^1.6.1",
     "babelify": "^8.0.0",
     "browserify": "^14.5.0",
+    "earcut": "^2.1.2",
     "serve": "^6.4.1",
     "tape": "^4.8.0",
     "watchify": "^3.9.0",

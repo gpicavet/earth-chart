@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+let countryISO2 = require('../node_modules/country-json/src/country-by-abbreviation.json');
+let countryPopulation = require('../node_modules/country-json/src/country-by-population.json');
 
 let radius = 35;
 let distance=100;
@@ -10,50 +12,66 @@ let isMouseDown=false;
 let currentIntersectedObj=null;
 let currentIntersectedObjBar=null;
 
-var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 45, window.innerWidth/window.innerHeight, 1, 1000 );
-camera.position.x = distance * Math.sin( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
-camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
-camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
-camera.lookAt(scene.position);
 
-let sun = new THREE.DirectionalLight( 0xffffff );
-sun.position.set( 0, 1, 1 ).normalize();
-scene.add(sun);
+let scene;
+let camera;
+let earthSphere;
 
-var geometry = new THREE.SphereGeometry( radius-0.2, 50, 50 );
-var material = new THREE.MeshPhongMaterial( { color: 0x0000ff, specular: 0x111111, shininess: 30 } );
+let raycaster = new THREE.Raycaster();
 
-var earth = new THREE.Mesh( geometry, material );
-scene.add( earth );
+let renderer;
 
-var renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
-var raycaster = new THREE.Raycaster();
-document.body.appendChild( renderer.domElement );
+function renderEarth(geoDataUri, container, width, height) {
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize( width, height );
+    container.appendChild( renderer.domElement );
 
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera( 45, width/height, 1, 1000 );
+    updateCamera();
+    camera.lookAt(scene.position);
 
-document.addEventListener( 'mousemove', onDocumentMouseMove, false );
-document.addEventListener( 'mousedown', onDocumentMouseDown, false );
-document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+    let sun = new THREE.DirectionalLight( 0xffffff );
+    sun.position.set( 0, 1, 1 ).normalize();
+    scene.add(sun);
 
+    let geometry = new THREE.SphereGeometry( radius-0.2, 50, 50 );
+    let material = new THREE.MeshPhongMaterial( { color: 0x0000ff, specular: 0x111111, shininess: 30 } );
 
-function onDocumentMouseMove(event) {
+    earthSphere = new THREE.Mesh( geometry, material );
+    scene.add( earthSphere );
+
+    container.addEventListener( 'mousemove', onMouseMove, false );
+    container.addEventListener( 'mousedown', onMouseDown, false );
+    container.addEventListener( 'mouseup', onMouseUp, false );
+    container.addEventListener( 'wheel', onMouseWheel, false);
+
+    loadGeoData(geoDataUri).then(function() {
+      animate();
+    })
+}
+
+function updateCamera() {
+    camera.position.x = distance * Math.sin( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+    camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
+    camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
+    camera.updateMatrix();
+
+}
+
+function onMouseMove(event) {
   event.preventDefault();
   if(isMouseDown) {
     theta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 ) + onMouseDownTheta;
     phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 ) + onMouseDownPhi;
 
-    camera.position.x = distance * Math.sin( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
-    camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
-    camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
-    camera.updateMatrix();
+    updateCamera();
     camera.lookAt(scene.position);
 
   } else {
 
       // update the picking ray with the camera and mouse position
-  	raycaster.setFromCamera( new THREE.Vector2(( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1), camera );
+  	raycaster.setFromCamera( new THREE.Vector2(( event.clientX / renderer.getSize().width ) * 2 - 1, - ( event.clientY / renderer.getSize().height ) * 2 + 1), camera );
 
   	// calculate objects intersecting the picking ray
   	var intersects = raycaster.intersectObjects( scene.children );
@@ -62,14 +80,19 @@ function onDocumentMouseMove(event) {
 
       if(currentIntersectedObj != intersects[ 0 ].object &&
         currentIntersectedObjBar != intersects[ 0 ].object &&
-        earth != intersects[ 0 ].object) {
-
+        earthSphere != intersects[ 0 ].object) {
+/*
         //replace latest if exists
         if(currentIntersectedObjBar) {
           scene.remove(currentIntersectedObjBar);
         }
 
         currentIntersectedObj = intersects[ 0 ].object;
+
+        let data = loadCountryData(currentIntersectedObj.name);
+        let extent = data / 1000000000;
+
+        console.log("SELECTED country ", currentIntersectedObj.name, data);
 
         //extrude country
         let geometry = new THREE.Geometry();
@@ -81,7 +104,7 @@ function onDocumentMouseMove(event) {
         }
         for(let vert of currentIntersectedObj.geometry.vertices) {
           geometry.vertices.push(
-            vert.clone().multiplyScalar(1.1)
+            vert.clone().multiplyScalar(1+extent)
           );
         }
 
@@ -99,9 +122,7 @@ function onDocumentMouseMove(event) {
         let material = new THREE.MeshBasicMaterial( { color: currentIntersectedObj.material.color, opacity:0.5, transparent:true } );
         currentIntersectedObjBar = new THREE.Mesh( geometry, material ) ;
 
-        scene.add( currentIntersectedObjBar );
-
-        console.log("SELECTED", currentIntersectedObj);
+        scene.add( currentIntersectedObjBar );*/
       }
     } else {
       if(currentIntersectedObjBar) {
@@ -119,7 +140,7 @@ function onDocumentMouseMove(event) {
 
 }
 
-function onDocumentMouseDown(event) {
+function onMouseDown(event) {
   event.preventDefault();
   isMouseDown=true;
   onMouseDownTheta = theta;
@@ -128,11 +149,17 @@ function onDocumentMouseDown(event) {
   onMouseDownPosition.y = event.clientY;
 }
 
-function onDocumentMouseUp(event) {
+function onMouseUp(event) {
   event.preventDefault();
   isMouseDown=false;
   onMouseDownPosition.x = event.clientX - onMouseDownPosition.x;
   onMouseDownPosition.y = event.clientY - onMouseDownPosition.y;
+}
+
+function onMouseWheel(event) {
+  event.preventDefault();
+  distance += event.deltaY/20;
+  updateCamera();
 }
 
 function animate() {
@@ -142,16 +169,24 @@ function animate() {
 };
 
 
-function loadEarth(file) {
+function loadGeoData(file) {
   return fetch(file)
   .then(function(res) {return res.json();})
   .then(function(mesh) {
 
     for(let country of mesh.countries) {
 
-      let material = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16)+Math.floor(2+Math.random()*14).toString(16) } );
+      console.log("loading country "+country.iso2);
+
+      let data = loadCountryData(country.iso2);
+      let extent = data / 1000000000;
+
+      let material = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16),
+       opacity:0.5, transparent:true} );
 
       for(let poly of country.polygons) {
+
+
         let geometry = new THREE.Geometry();
 
         for(let vert of poly.vertices) {
@@ -159,18 +194,49 @@ function loadEarth(file) {
             new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius)
           );
         }
+        for(let vert of poly.vertices) {
+          geometry.vertices.push(
+            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius*(1+extent))
+          );
+        }
+
+        let nv = poly.vertices.length;
 
         for(let face of poly.faces) {
-          geometry.faces.push( new THREE.Face3( face[0], face[1], face[2] ) );
+          geometry.faces.push( new THREE.Face3( nv+face[0], nv+face[1], nv+face[2] ) );
         }
+        for(let ivert =0; ivert<nv; ivert++) {
+          let ivert2 = (ivert+1)%nv;
+          geometry.faces.push( new THREE.Face3(ivert,ivert2+nv,ivert2) );
+          geometry.faces.push( new THREE.Face3(ivert,ivert+nv,ivert2+nv) );
+        }
+
         let mesh = new THREE.Mesh( geometry, material ) ;
+        mesh.name = country.iso2;
         scene.add( mesh );
+
+
+
+
       }
 
     }
   });
 }
 
-loadEarth("countries-world.json").then(function() {
-  animate();
-})
+function loadCountryData(iso2) {
+
+    let res = 0;
+    let c = countryISO2.filter(e => e.abbreviation == iso2);
+    if(c.length>0) {
+        let cp = countryPopulation.filter(e => e.country == c[0].country);
+        if(cp.length>0) {
+            res = cp[0].population;
+        }
+    }
+    return res;
+}
+
+module.exports = {
+    renderEarth
+}
