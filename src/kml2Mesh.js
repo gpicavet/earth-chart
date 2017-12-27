@@ -13,7 +13,7 @@ fs.readFile(__dirname + '/countries-world.kml', function(err, data) {
     parser.parseString(data, function (err, result) {
         if(err)
           throw err;
-        kml2mesh(result,__dirname + "/../public/countries-world.json");
+        kml2mesh(result,__dirname + "/../public/data/countries-world.json");
     });
 });
 
@@ -50,7 +50,11 @@ function kml2mesh(doc, outputFileName) {
     }
   }
 
-  fs.writeFile(outputFileName, JSON.stringify(output,null,2), (err) => {
+  let json = JSON.stringify( output,
+    function(key, val) {//reduce float precision
+        return val.toFixed ? Number(val.toFixed(3)) : val;
+    });
+  fs.writeFile(outputFileName, json, (err) => {
     if(err)
       throw err;
     console.log("mesh file created");
@@ -138,8 +142,9 @@ function kml2Poly(doc, out) {
               //console.log("after split "+splitpolys.length);
             }
 
+            //triangulate and convert to x,y,z
             let faceOffset=0;
-            let mesh={vertices:[], faces:[]};
+            let mesh={contour:[], vertices:[], faces:[]};
             out.polygons.push(mesh);
             for(let splitpoly of splitpolys) {
               if(splitpoly.length>0) {
@@ -156,7 +161,7 @@ function kml2Poly(doc, out) {
                 for(let v of splitpoly) {
                   let lon=v[0];
                   let lat=v[1];
-                  //opengl coordinate systeme
+                  //opengl x,y,z coordinate system
                   let x = Math.cos(lat*Math.PI/180)*Math.sin(lon*Math.PI/180);
                   let y = Math.sin(lat*Math.PI/180);
                   let z = Math.cos(lat*Math.PI/180)*Math.cos(lon*Math.PI/180);
@@ -172,6 +177,16 @@ function kml2Poly(doc, out) {
 
                 faceOffset+=splitpoly.length;
               }
+            }
+            //initial contour
+            for(let v of geocoords) {
+              let lon=v[0];
+              let lat=v[1];
+              //opengl x,y,z coordinate system
+              let x = Math.cos(lat*Math.PI/180)*Math.sin(lon*Math.PI/180);
+              let y = Math.sin(lat*Math.PI/180);
+              let z = Math.cos(lat*Math.PI/180)*Math.cos(lon*Math.PI/180);
+              mesh.contour.push([x,y,z]);
             }
           }
         }

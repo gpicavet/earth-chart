@@ -10,7 +10,19 @@
 		<div id="chart"></div>
 		<script src="js/app.js"></script>
 		<script>
-			App.renderEarth('countries-world.json', document.querySelector('#chart'), window.innerWidth*0.8, window.innerWidth*0.8*9/16);
+
+			var countryByAbbreviation={};
+			var countryData={};//data by iso2 code
+
+			fetch('data/country-by-abbreviation.json')
+   			.then(function(res) {return res.json();})
+    		.then(function(data) {data.forEach(function(el) {countryByAbbreviation[el.country]=el.abbreviation});})
+			.then(function() {return fetch('data/country-by-population.json');})
+	    	.then(function(res) {return res.json();})
+		    .then(function(data) {data.forEach(function(el) {countryData[countryByAbbreviation[el.country]]=el.population});})
+            .then(function() {
+               	App.renderEarth('data/countries-world.json', countryData, document.querySelector('#chart'), window.innerWidth, window.innerHeight);
+	    	});
 		</script>
 	</body>
 </html>

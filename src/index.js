@@ -1,8 +1,5 @@
 import * as THREE from 'three';
 
-let countryISO2 = require('../node_modules/country-json/src/country-by-abbreviation.json');
-let countryPopulation = require('../node_modules/country-json/src/country-by-population.json');
-
 let radius = 35;
 let distance=100;
 let theta=0, onMouseDownTheta=0, phi=30, onMouseDownPhi=30;
@@ -10,8 +7,6 @@ let onMouseDownPosition = new THREE.Vector2();
 
 let isMouseDown=false;
 let currentIntersectedObj=null;
-let currentIntersectedObjBar=null;
-
 
 let scene;
 let camera;
@@ -21,8 +16,8 @@ let raycaster = new THREE.Raycaster();
 
 let renderer;
 
-function renderEarth(geoDataUri, container, width, height) {
-    renderer = new THREE.WebGLRenderer();
+function renderEarth(geoDataUri, countryData, container, width, height) {
+    renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize( width, height );
     container.appendChild( renderer.domElement );
 
@@ -46,7 +41,7 @@ function renderEarth(geoDataUri, container, width, height) {
     container.addEventListener( 'mouseup', onMouseUp, false );
     container.addEventListener( 'wheel', onMouseWheel, false);
 
-    loadGeoData(geoDataUri).then(function() {
+    loadGeoData(geoDataUri,countryData).then(function() {
       animate();
     })
 }
@@ -78,36 +73,23 @@ function onMouseMove(event) {
     if(intersects.length>0) {
 
       if(currentIntersectedObj != intersects[ 0 ].object &&
-        currentIntersectedObjBar != intersects[ 0 ].object &&
-        earthSphere != intersects[ 0 ].object) {
+        earthSphere != intersects[ 0 ].object &&
+        intersects[ 0 ].object.name.indexOf("contour")<0) {
 
         //replace latest if exists
-        if(currentIntersectedObjBar) {
-          scene.remove(currentIntersectedObjBar);
+        if(currentIntersectedObj) {
+          scene.getObjectByName(currentIntersectedObj.name+"-contour").visible=false;
         }
 
         currentIntersectedObj = intersects[ 0 ].object;
 
         console.log("SELECTED country ", currentIntersectedObj.name);
-/*
-        //extrude country
-        let geometry = new THREE.Geometry();
 
-        for(let vert=currentIntersectedObj.geometry.vertices.length/2; vert<currentIntersectedObj.geometry.vertices.length; vert++) {
-          geometry.vertices.push(
-            currentIntersectedObj.geometry.vertices[vert].clone()
-          );
-        }
-
-        let material = new THREE.LineBasicMaterial( { color: currentIntersectedObj.material.color, linewidth:2 } );
-        currentIntersectedObjBar = new THREE.LineLoop( geometry, material ) ;
-
-        scene.add( currentIntersectedObjBar );*/
+        scene.getObjectByName(currentIntersectedObj.name+"-contour").visible=true;
       }
     } else {
-      if(currentIntersectedObjBar) {
-        scene.remove(currentIntersectedObjBar);
-      }
+      if(currentIntersectedObj)
+        scene.getObjectByName(currentIntersectedObj.name+"-contour").visible=false;
 
       currentIntersectedObj = null;
     }
@@ -150,7 +132,7 @@ function animate() {
 };
 
 
-function loadGeoData(file) {
+function loadGeoData(file, countryData) {
   return fetch(file)
   .then(function(res) {return res.json();})
   .then(function(mesh) {
@@ -159,63 +141,69 @@ function loadGeoData(file) {
 
       console.log("loading country "+country.iso2);
 
-      let data = loadCountryData(country.iso2);
+      let data = countryData[country.iso2];
+
       let extent = data / 1000000000;
 
-      let material = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16),
+      let extMaterial = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16),
        opacity:0.5, transparent:true} );
+      let contMaterial = new THREE.LineBasicMaterial( { color: extMaterial.color, linewidth:2 } );
 
       for(let poly of country.polygons) {
 
+        //1) create an extruded country
+        let extGeometry = new THREE.Geometry();
 
-        let geometry = new THREE.Geometry();
-
+        //country polygon will use triangulated vertices and faces
         for(let vert of poly.vertices) {
-          geometry.vertices.push(
-            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius)
-          );
-        }
-        for(let vert of poly.vertices) {
-          geometry.vertices.push(
+          extGeometry.vertices.push(
             new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius*(1+extent))
           );
         }
-
-        let nv = poly.vertices.length;
-
         for(let face of poly.faces) {
-          geometry.faces.push( new THREE.Face3( nv+face[0], nv+face[1], nv+face[2] ) );
-        }
-        for(let ivert =0; ivert<nv; ivert++) {
-          let ivert2 = (ivert+1)%nv;
-          geometry.faces.push( new THREE.Face3(ivert,ivert2+nv,ivert2) );
-          geometry.faces.push( new THREE.Face3(ivert,ivert+nv,ivert2+nv) );
+          extGeometry.faces.push( new THREE.Face3( face[0], face[1], face[2] ) );
         }
 
-        let mesh = new THREE.Mesh( geometry, material ) ;
-        mesh.name = country.iso2;
-        scene.add( mesh );
+        //country contour
+        for(let vert of poly.contour) {
+          extGeometry.vertices.push(
+            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius)
+          );
+        }
+        for(let vert of poly.contour) {
+          extGeometry.vertices.push(
+            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius*(1+extent))
+          );
+        }
+        let startOffs=poly.vertices.length;
+        let offs2=poly.contour.length;
+        for(let ivert =0; ivert<offs2; ivert++) {
+          let ivert2 = (ivert+1)%offs2;
+          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert2+offs2,startOffs+ivert2) );
+          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert+offs2,startOffs+ivert2+offs2) );
+        }
 
+        let extMesh = new THREE.Mesh( extGeometry, extMaterial ) ;
+        extMesh.name = country.iso2;
+        scene.add( extMesh );
 
+        //2) create a contour line
+        let contGeometry = new THREE.Geometry();
 
+        for(let vert of poly.contour) {
+          contGeometry.vertices.push(
+            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius)
+          );
+        }
 
+        let contour = new THREE.LineLoop( contGeometry, contMaterial ) ;
+        contour.name = country.iso2+"-contour";
+        contour.visible=false;
+        scene.add( contour );
       }
 
     }
   });
-}
-
-function loadCountryData(iso2) {
-
-    let res = 0;
-    let c = countryISO2.filter(e => e.abbreviation == iso2);
-    if(c.length>0) {
-        let cp = countryPopulation.filter(e => e.country == c[0].country);
-        if(cp.length>0) {
-            res = cp[0].population;
-        }
-    }
-    return res;
 }
 
 module.exports = {
