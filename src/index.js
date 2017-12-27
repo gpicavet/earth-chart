@@ -56,7 +56,7 @@ function updateCamera() {
     camera.position.y = distance * Math.sin( phi * Math.PI / 180 );
     camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
     camera.updateMatrix();
-
+    camera.lookAt(scene.position);
 }
 
 function onMouseMove(event) {
@@ -66,7 +66,6 @@ function onMouseMove(event) {
     phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 ) + onMouseDownPhi;
 
     updateCamera();
-    camera.lookAt(scene.position);
 
   } else {
 
@@ -145,7 +144,8 @@ function onMouseWheel(event) {
 
 function animate() {
   requestAnimationFrame( animate );
-
+  theta+=0.1;
+  updateCamera();
   renderer.render(scene, camera);
 };
 
