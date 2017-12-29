@@ -1,7 +1,7 @@
 {
   "name": "earthchart",
   "version": "1.0.0",
-  "description": "",
+  "description": "3D country data visualization",
   "main": "index.js",
   "scripts": {
     "test": "tape src/*.test.js",
@@ -23,6 +23,7 @@
     "country-json": "^1.0.2",
     "earcut": "^2.1.2",
     "serve": "^6.4.1",
+    "split-poly": "^1.0.0",
     "tape": "^4.8.0",
     "watchify": "^3.9.0",
     "xml2js": "^0.4.19"
