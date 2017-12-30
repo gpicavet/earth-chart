@@ -1,6 +1,6 @@
 ## demo
 
-[![](/assets/earth-viz/earth-viz.png)](<https://gpicavet.github.io/assets/earth-viz/test.html>)
+[![](https://gpicavet.github.io/assets/earth-viz/earth-viz.png)](<https://gpicavet.github.io/assets/earth-viz/test.html>)
 
 ## build
 
