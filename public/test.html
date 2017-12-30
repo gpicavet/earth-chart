@@ -22,7 +22,7 @@
 			fetchJSON('data/country-by-abbreviation.json')
     		.then(function(data) {data.forEach(function(el) {countryByAbbreviation[el.country]=el.abbreviation});})
 			.then(function() {return fetchJSON('data/country-by-population.json');})
-		    .then(function(data) {data.forEach(function(el) {countryData[countryByAbbreviation[el.country]]=el.population});})
+		    .then(function(data) {data.forEach(function(el) {countryData[countryByAbbreviation[el.country]]=el.population/1000000000});})
             .then(function() {
                	App.renderEarth('data/countries-world.json', countryData, document.querySelector('#chart'), window.innerWidth, window.innerHeight);
 	    	});

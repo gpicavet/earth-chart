@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "tape src/*.test.js",
+    "kml2mesh": "node src/kml2Mesh.js src/countries-world.kml public/data/countries-world.json",
     "watch": "watchify src/index.js --s App -o public/js/app.js -dv",
     "copySampleData": "cp node_modules/country-json/src/*.json public/data/",
     "start": "serve public",
@@ -23,7 +24,7 @@
     "country-json": "^1.0.2",
     "earcut": "^2.1.2",
     "serve": "^6.4.1",
-    "split-poly": "^1.0.0",
+    "split-poly": "^1.0.1",
     "tape": "^4.8.0",
     "watchify": "^3.9.0",
     "xml2js": "^0.4.19"

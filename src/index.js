@@ -2,8 +2,9 @@ import * as THREE from 'three';
 
 let radius = 35;
 let distance=100;
-let theta=0, onMouseDownTheta=0, phi=30, onMouseDownPhi=30;
+let theta=0, onMouseDownTheta=0, nextTheta=0, phi=30, onMouseDownPhi=30, nextPhi=0;
 let onMouseDownPosition = new THREE.Vector2();
+let startMouseMove=null;
 
 let isMouseDown=false;
 let currentIntersectedObj=null;
@@ -57,12 +58,13 @@ function updateCamera() {
 function onMouseMove(event) {
   event.preventDefault();
   if(isMouseDown) {
-    theta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 ) + onMouseDownTheta;
-    phi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 ) + onMouseDownPhi;
-
-    updateCamera();
+    // move less if we are close
+    nextTheta = - ( ( event.clientX - onMouseDownPosition.x ) * 0.5 )*distance/100 + onMouseDownTheta;
+    nextPhi = ( ( event.clientY - onMouseDownPosition.y ) * 0.5 )*distance/100 + onMouseDownPhi;
+    startMouseMove=Date.now();
 
   } else {
+    startMouseMove=null;
 
       // update the picking ray with the camera and mouse position
   	raycaster.setFromCamera( new THREE.Vector2(( event.clientX / renderer.getSize().width ) * 2 - 1, - ( event.clientY / renderer.getSize().height ) * 2 + 1), camera );
@@ -121,12 +123,19 @@ function onMouseUp(event) {
 function onMouseWheel(event) {
   event.preventDefault();
   distance += event.deltaY/20;
-  updateCamera();
+  if(distance < radius*1.2 )
+    distance=radius*1.2;
 }
 
 function animate() {
   requestAnimationFrame( animate );
   theta+=0.1;
+
+  if(startMouseMove!=null) {//smoothly move to next position
+    theta+=(nextTheta-theta)/3;
+    phi+=(nextPhi-phi)/3;
+  }
+
   updateCamera();
   renderer.render(scene, camera);
 };
@@ -137,13 +146,13 @@ function loadGeoData(file, countryData) {
   .then(function(res) {return res.json();})
   .then(function(mesh) {
 
+    let stats={vertices:0,triangles:0};
+
     for(let country of mesh.countries) {
 
       console.log("loading country "+country.iso2);
 
-      let data = countryData[country.iso2];
-
-      let extent = data / 1000000000;
+      let extent = countryData[country.iso2] || 0;
 
       let extMaterial = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16),
        opacity:0.5, transparent:true} );
@@ -154,7 +163,7 @@ function loadGeoData(file, countryData) {
         //1) create an extruded country
         let extGeometry = new THREE.Geometry();
 
-        //country polygon will use triangulated vertices and faces
+        //country inside polygons
         for(let vert of poly.vertices) {
           extGeometry.vertices.push(
             new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius*(1+extent))
@@ -187,6 +196,9 @@ function loadGeoData(file, countryData) {
         extMesh.name = country.iso2;
         scene.add( extMesh );
 
+        stats.vertices+=extGeometry.vertices.length;
+        stats.triangles+=extGeometry.faces.length;
+
         //2) create a contour line
         let contGeometry = new THREE.Geometry();
 
@@ -203,6 +215,7 @@ function loadGeoData(file, countryData) {
       }
 
     }
+    console.info(stats);
   });
 }
 
