@@ -1,3 +1,7 @@
+## demo
+
+[[](https://gpicavet.github.io/assets/earth-viz/earth-viz.png)](https://gpicavet.github.io/assets/earth-viz/test.html))
+
 ## build
 
 ```sh
