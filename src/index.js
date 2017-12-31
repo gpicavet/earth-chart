@@ -10,6 +10,7 @@ let isMouseDown=false;
 let currentIntersectedObj=null;
 
 let scene;
+let sun;
 let camera;
 let earthSphere;
 
@@ -22,14 +23,16 @@ function renderEarth(geoDataUri, countryData, container, width, height) {
     renderer.setSize( width, height );
     container.appendChild( renderer.domElement );
 
+
     scene = new THREE.Scene();
+
+    sun = new THREE.DirectionalLight( 0xffffff );
+    scene.add(sun);
+
     camera = new THREE.PerspectiveCamera( 45, width/height, 1, 1000 );
     updateCamera();
     camera.lookAt(scene.position);
 
-    let sun = new THREE.DirectionalLight( 0xffffff );
-    sun.position.set( 0, 1, 1 ).normalize();
-    scene.add(sun);
 
     let geometry = new THREE.SphereGeometry( radius-0.2, 50, 50 );
     let material = new THREE.MeshPhongMaterial( { color: 0x0000ff, specular: 0x111111, shininess: 30 } );
@@ -53,6 +56,9 @@ function updateCamera() {
     camera.position.z = distance * Math.cos( theta * Math.PI / 180 ) * Math.cos( phi * Math.PI / 180 );
     camera.updateMatrix();
     camera.lookAt(scene.position);
+
+    sun.position.set( 0,1,1).normalize();
+
 }
 
 function onMouseMove(event) {
@@ -90,8 +96,9 @@ function onMouseMove(event) {
         scene.getObjectByName(currentIntersectedObj.name+"-contour").visible=true;
       }
     } else {
-      if(currentIntersectedObj)
+      if(currentIntersectedObj) {
         scene.getObjectByName(currentIntersectedObj.name+"-contour").visible=false;
+      }
 
       currentIntersectedObj = null;
     }
@@ -154,9 +161,22 @@ function loadGeoData(file, countryData) {
 
       let extent = countryData[country.iso2] || 0;
 
-      let extMaterial = new THREE.MeshBasicMaterial( { color: '#'+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16)+Math.floor(6+Math.random()*10).toString(16),
-       opacity:0.5, transparent:true} );
-      let contMaterial = new THREE.LineBasicMaterial( { color: extMaterial.color, linewidth:2 } );
+      let extColor = new THREE.Color(
+                        0.2+Math.random()*0.6,
+                        0.2+Math.random()*0.6,
+                        0.2+Math.random()*0.6);
+      let extColor2 = new THREE.Color(extColor.r/5,extColor.g/5,extColor.b/5);
+      let extMaterialFront = new THREE.MeshPhongMaterial( {
+        color: extColor,
+        side: THREE.FrontSide,
+        opacity:0.9,
+        transparent:true,
+        shininess:50,
+        specular: 0x111111} );
+      let extMaterialSide = new THREE.MeshPhongMaterial( {
+        color: extColor2,
+        side: THREE.FrontSide});
+      let contMaterial = new THREE.LineBasicMaterial( { color: extColor, linewidth:2 } );
 
       for(let poly of country.polygons) {
 
@@ -170,7 +190,11 @@ function loadGeoData(file, countryData) {
           );
         }
         for(let face of poly.faces) {
-          extGeometry.faces.push( new THREE.Face3( face[0], face[1], face[2] ) );
+          let normals =[
+            extGeometry.vertices[face[0]].clone().normalize(),
+            extGeometry.vertices[face[1]].clone().normalize(),
+            extGeometry.vertices[face[2]].clone().normalize()];
+          extGeometry.faces.push( new THREE.Face3( face[0], face[1], face[2], normals) );
         }
 
         //country contour
@@ -188,13 +212,15 @@ function loadGeoData(file, countryData) {
         let offs2=poly.contour.length;
         for(let ivert =0; ivert<offs2; ivert++) {
           let ivert2 = (ivert+1)%offs2;
-          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert2+offs2,startOffs+ivert2) );
-          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert+offs2,startOffs+ivert2+offs2) );
+          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert2+offs2,startOffs+ivert2, null, null, 1) );
+          extGeometry.faces.push( new THREE.Face3(startOffs+ivert,startOffs+ivert+offs2,startOffs+ivert2+offs2, null, null, 1) );
         }
 
-        let extMesh = new THREE.Mesh( extGeometry, extMaterial ) ;
-        extMesh.name = country.iso2;
-        scene.add( extMesh );
+        extGeometry.computeFaceNormals();
+
+        let extMeshFront = new THREE.Mesh( extGeometry, [extMaterialFront, extMaterialSide] ) ;
+        extMeshFront.name = country.iso2;
+        scene.add( extMeshFront );
 
         stats.vertices+=extGeometry.vertices.length;
         stats.triangles+=extGeometry.faces.length;
@@ -204,7 +230,7 @@ function loadGeoData(file, countryData) {
 
         for(let vert of poly.contour) {
           contGeometry.vertices.push(
-            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius)
+            new THREE.Vector3( vert[0], vert[1], vert[2] ).multiplyScalar(radius*(1+extent))
           );
         }
 
